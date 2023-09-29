@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Inter FONT -->
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+
+    <!-- FontAwesome-->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <!-- Tailwind CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Alpine JS CDN -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <title>Gestion des congés</title>
+</head>
+<body>
+    <h1 class="text-3xl p-3 font-sans font-bold text-center" >
+        Gestion des congés
+    </h1>
+
+    <!-- Legend -->
+    <div class="m-auto w-fit">
+        <i class="fas fa-calendar-alt"></i> 
+        <span class="text-gray-700 text-sm">Jours</span>
+        <i class="fas fa-clock"></i> 
+        <span class="text-gray-700 text-sm">Heures</span>
+        <i class="fas fa-stopwatch"></i> 
+        <span class="text-gray-700 text-sm">Minutes</span>
+    </div>
+
+    <hr class="my-4 h-px border-t-0 bg-transparent bg-gradient-to-r from-transparent via-neutral-500 to-transparent opacity-25 dark:opacity-100" />
+
+    <div
+    class="p-3 max-w-lg m-auto"
+    x-data="{
+        //variables
+        time: '11:08',
+        overtimeHours: null,
+        overtimeMinutes: null,
+        creditAnnuel: null,
+        rpsHours: null,
+        rpsMinutes: null,
+        arttHours: null,
+        arttMinutes: null,
+        creditFerieHours: null,
+        creditFerieMinutes: null,
+        cahp: 0,
+        result: {
+            'overtime': { days: 0, hours: 0, minutes: 0 },
+            'rps': { days: 0, hours: 0, minutes: 0 },
+            'artt': { days: 0, hours: 0, minutes: 0 },
+            'creditFerie': { days: 0, hours: 0, minutes: 0 }
+        },
+        totalResult: { days: 0, hours: 0, minutes: 0 },
+
+        //methods 
+        init() {
+            // Watch for changes on cahp
+            this.$watch('cahp', (newValue) => {
+                // newValue holds the current value of cahp
+                this.calculateTotal();
+            });
+
+            // Watch for changes on time
+            this.$watch('time', (newValue) => {
+                // Recalculate all results when the time changes
+                this.calculateDaysOff('overtime', this.overtimeHours, this.overtimeMinutes);
+                this.calculateDaysOff('rps', this.rpsHours, this.rpsMinutes);
+                this.calculateDaysOff('artt', this.arttHours, this.arttMinutes);
+                this.calculateDaysOff('creditFerie', this.creditFerieHours, this.creditFerieMinutes);
+            });
+        },
+        getHours() {
+            return this.time.split(':')[0];
+        },
+        getMinutes() {
+            return this.time.split(':')[1];
+        },
+
+        calculateDaysOff(inputName, hours, minutes) {
+            // Convert overtime hours and minutes to total overtime minutes
+            const totalOvertimeMinutes = ( (hours ? hours : 0) * 60) + parseInt(minutes ? minutes : 0);
+        
+            // Calculate custom workday length in minutes
+            const customWorkDayMinutes = (this.getHours() * 60) + parseInt(this.getMinutes());
+        
+            // Calculate the number of custom workdays fitting into the total overtime
+            const workDays = Math.floor(totalOvertimeMinutes / customWorkDayMinutes);
+        
+            // Calculate the remaining minutes after accounting for the workDays
+            const remainingMinutes = totalOvertimeMinutes % customWorkDayMinutes;
+        
+            // Convert remaining minutes back to hours and additional minutes
+            const remainingHours = Math.floor(remainingMinutes / 60);
+            const remainingMinutesAfterHour = remainingMinutes % 60;
+
+            this.result[inputName] = {
+                days: workDays,
+                hours: remainingHours,
+                minutes: remainingMinutesAfterHour
+            };
+
+            this.calculateTotal();
+        },
+
+        calculateTotal() {
+            let totalOvertimeMinutes = 0;
+
+            // Calculate custom workday length in minutes
+            const customWorkDayMinutes = (this.getHours() * 60) + parseInt(this.getMinutes());
+
+            // Loop through each key in the result object to sum the days, hours, and minutes into totalOvertimeMinutes
+            for (const key in this.result) {
+                totalOvertimeMinutes += (this.result[key].days * customWorkDayMinutes) + (this.result[key].hours * 60) + this.result[key].minutes;
+            }
+            
+            // Calculate the number of custom workdays fitting into the total overtime
+            const workDays = Math.floor(totalOvertimeMinutes / customWorkDayMinutes) + parseInt(this.creditAnnuel ?? 0) + parseInt(this.cahp);
+            console.log('workdays', workDays);
+
+            // Calculate the remaining minutes after accounting for the workDays
+            const remainingMinutes = totalOvertimeMinutes % customWorkDayMinutes;
+
+            // Convert remaining minutes back to hours and additional minutes
+            const remainingHours = Math.floor(remainingMinutes / 60);
+            const remainingMinutesAfterHour = remainingMinutes % 60;
+
+            this.totalResult = {
+                days: workDays,
+                hours: remainingHours,
+                minutes: remainingMinutesAfterHour
+            };
+        }
+    }" 
+    x-init="init()"   
+    >
+
+        <div class="flex justify-center shadow-lg rounded-lg mb-6 bg-slate-300">
+            <label
+            for="time"
+            class="m-4 w-48 leading-9 relative block rounded-md border border-gray-200 shadow-sm focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600">
+                <input
+                    class="pl-3 w-full peer border-none bg-transparent placeholder-transparent focus:border-transparent focus:outline-none focus:ring-0"
+                    x-model="time"
+                    id="time"
+                    name="datetime[time]"
+                    type="time"
+                >
+
+                <span class="font-medium pointer-events-none absolute start-2.5 top-0 -translate-y-1/2 bg-slate-300 p-0.5 text-xs text-black transition-all peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-sm peer-focus:top-0 peer-focus:text-xs">
+                    Durée de la vacation
+                </span>
+            </label>
+        </div>
+
+        <div class="w-full p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8">
+
+            <!-- OVERTIME -->
+            <h3 class="mb-3 font-semibold">Heures supplémentaires</h3>
+            <div class="flex gap-3 mb-6">
+                <label
+                for="overtimeHours"
+                class="w-20 leading-9 relative block rounded-md border border-gray-200 shadow-sm focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600">
+                    <input
+                    class="pl-3 w-full peer border-none bg-transparent placeholder-transparent focus:border-transparent focus:outline-none focus:ring-0"
+                    x-model="overtimeHours"
+                    x-on:input="calculateDaysOff('overtime', overtimeHours, overtimeMinutes)"
+                    id="overtimeHours"
+                    name="datetime[time]"
+                    type="number"
+                    min="0"
+                    placeholder="11"
+                    onchange="if(parseInt(this.value,10)<10 && this.value.length < 2)this.value='0'+this.value;"
+                    >
+
+                    <span class="pointer-events-none absolute start-2.5 top-0 -translate-y-1/2 bg-white p-0.5 text-xs text-gray-700 transition-all peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-sm peer-focus:top-0 peer-focus:text-xs">
+                        Heures
+                    </span>
+                </label>
+                
+                <label
+                for="overtimeMinutes"
+                class="w-20 leading-9 relative block rounded-md border border-gray-200 shadow-sm focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600">
+
+                    <input
+                    class="pl-3 w-full peer border-none bg-transparent placeholder-transparent focus:border-transparent focus:outline-none focus:ring-0"
+                    x-model="overtimeMinutes"
+                    x-on:input="calculateDaysOff('overtime', overtimeHours, overtimeMinutes)"
+                    id="overtimeMinutes"
+                    name="datetime[time]"
+                    type="number"
+                    placeholder="08"
+                    min="0"
+                    max="59"
+                    onchange="if(parseInt(this.value,10)<10 && this.value.length < 2)this.value='0'+this.value;"
+                    >
+                    <span class="pointer-events-none absolute start-2.5 top-0 -translate-y-1/2 bg-white p-0.5 text-xs text-gray-700 transition-all peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-sm peer-focus:top-0 peer-focus:text-xs">
+                        Minutes
+                    </span>
+                </label>
+    
+                <div class="flex gap-3 ml-auto">
+                    <p>
+                        <i class="fas fa-calendar-alt"></i> 
+                        <span x-text="result['overtime'].days"></span>
+                    </p>
+                    <p>
+                        <i class="fas fa-clock"></i> 
+                        <span x-text="result['overtime'].hours"></span>
+                    </p>
+                    <p>
+                        <i class="fas fa-stopwatch"></i> 
+                        <span x-text="result['overtime'].minutes"></span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- RPS -->
+            <h3 class="mb-3 font-semibold">RPS</h3>
+            <div class="flex gap-3 mb-6">
+                <label
+                for="rpsHours"
+                class="w-20 leading-9 relative block rounded-md border border-gray-200 shadow-sm focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600">
+                    <input
+                    class="pl-3 w-full peer border-none bg-transparent placeholder-transparent focus:border-transparent focus:outline-none focus:ring-0"
+                    x-model="rpsHours"
+                    x-on:input="calculateDaysOff('rps', rpsHours, rpsMinutes)"
+                    id="rpsHours"
+                    name="datetime[time]"
+                    type="number"
+                    min="0"
+                    placeholder="00"
+                    onchange="if(parseInt(this.value,10)<10 && this.value.length < 2)this.value='0'+this.value;"
+                    >
+
+                    <span class="pointer-events-none absolute start-2.5 top-0 -translate-y-1/2 bg-white p-0.5 text-xs text-gray-700 transition-all peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-sm peer-focus:top-0 peer-focus:text-xs">
+                        Heures
+                    </span>
+                </label>
+                
+                <label
+                for="rpsMinutes"
+                class="w-20 leading-9 relative block rounded-md border border-gray-200 shadow-sm focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600">
+
+                    <input
+                    class="pl-3 w-full peer border-none bg-transparent placeholder-transparent focus:border-transparent focus:outline-none focus:ring-0"
+                    x-model="rpsMinutes"
+                    x-on:input="calculateDaysOff('rps', rpsHours, rpsMinutes)"
+                    id="rpsMinutes"
+                    name="datetime[time]"
+                    type="number"
+                    placeholder="00"
+                    min="0"
+                    max="59"
+                    onchange="if(parseInt(this.value,10)<10 && this.value.length < 2)this.value='0'+this.value;"
+                    >
+                    <span class="pointer-events-none absolute start-2.5 top-0 -translate-y-1/2 bg-white p-0.5 text-xs text-gray-700 transition-all peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-sm peer-focus:top-0 peer-focus:text-xs">
+                        Minutes
+                    </span>
+                </label>
+
+                <div class="flex gap-3 ml-auto">
+                    <p>
+                        <i class="fas fa-calendar-alt"></i> 
+                        <span x-text="result['rps'].days"></span>
+                    </p>
+                    <p>
+                        <i class="fas fa-clock"></i> 
+                        <span x-text="result['rps'].hours"></span>
+                    </p>
+                    <p>
+                        <i class="fas fa-stopwatch"></i> 
+                        <span x-text="result['rps'].minutes"></span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- ARTT -->
+            <h3 class="mb-3 font-semibold">ARTT</h3>
+            <div class="flex gap-3 mb-6">
+                <label
+                for="arttHours"
+                class="w-20 leading-9 relative block rounded-md border border-gray-200 shadow-sm focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600">
+                    <input
+                    class="pl-3 w-full peer border-none bg-transparent placeholder-transparent focus:border-transparent focus:outline-none focus:ring-0"
+                    x-model="arttHours"
+                    x-on:input="calculateDaysOff('artt', arttHours, arttMinutes)"
+                    id="arttHours"
+                    name="datetime[time]"
+                    type="number"
+                    min="0"
+                    placeholder="00"
+                    onchange="if(parseInt(this.value,10)<10 && this.value.length < 2)this.value='0'+this.value;"
+                    >
+
+                    <span class="pointer-events-none absolute start-2.5 top-0 -translate-y-1/2 bg-white p-0.5 text-xs text-gray-700 transition-all peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-sm peer-focus:top-0 peer-focus:text-xs">
+                        Heures
+                    </span>
+                </label>
+                
+                <label
+                for="arttMinutes"
+                class="w-20 leading-9 relative block rounded-md border border-gray-200 shadow-sm focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600">
+
+                    <input
+                    class="pl-3 w-full peer border-none bg-transparent placeholder-transparent focus:border-transparent focus:outline-none focus:ring-0"
+                    x-model="arttMinutes"
+                    x-on:input="calculateDaysOff('artt', arttHours, arttMinutes)"
+                    id="arttMinutes"
+                    name="datetime[time]"
+                    type="number"
+                    placeholder="00"
+                    min="0"
+                    max="59"
+                    onchange="if(parseInt(this.value,10)<10 && this.value.length < 2)this.value='0'+this.value;"
+                    >
+                    <span class="pointer-events-none absolute start-2.5 top-0 -translate-y-1/2 bg-white p-0.5 text-xs text-gray-700 transition-all peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-sm peer-focus:top-0 peer-focus:text-xs">
+                        Minutes
+                    </span>
+                </label>
+
+                <div class="flex gap-3 ml-auto">
+                    <p>
+                        <i class="fas fa-calendar-alt"></i> 
+                        <span x-text="result['artt'].days"></span>
+                    </p>
+                    <p>
+                        <i class="fas fa-clock"></i> 
+                        <span x-text="result['artt'].hours"></span>
+                    </p>
+                    <p>
+                        <i class="fas fa-stopwatch"></i> 
+                        <span x-text="result['artt'].minutes"></span>
+                    </p>
+                </div>
+            </div>
+            
+
+            <!-- CREDIT FERIE -->
+            <h3 class="mb-3 font-semibold">Crédits fériés</h3>
+            <div class="flex gap-3 mb-6">
+                <label
+                for="creditFerieHours"
+                class="w-20 leading-9 relative block rounded-md border border-gray-200 shadow-sm focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600">
+                    <input
+                    class="pl-3 w-full peer border-none bg-transparent placeholder-transparent focus:border-transparent focus:outline-none focus:ring-0"
+                    x-model="creditFerieHours"
+                    x-on:input="calculateDaysOff('creditFerie', creditFerieHours, creditFerieMinutes)"
+                    id="creditFerieHours"
+                    name="datetime[time]"
+                    type="number"
+                    min="0"
+                    placeholder="00"
+                    onchange="if(parseInt(this.value,10)<10 && this.value.length < 2)this.value='0'+this.value;"
+                    >
+
+                    <span class="pointer-events-none absolute start-2.5 top-0 -translate-y-1/2 bg-white p-0.5 text-xs text-gray-700 transition-all peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-sm peer-focus:top-0 peer-focus:text-xs">
+                        Heures
+                    </span>
+                </label>
+                
+                <label
+                for="creditFerieMinutes"
+                class="w-20 leading-9 relative block rounded-md border border-gray-200 shadow-sm focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600">
+
+                    <input
+                    class="pl-3 w-full peer border-none bg-transparent placeholder-transparent focus:border-transparent focus:outline-none focus:ring-0"
+                    x-model="creditFerieMinutes"
+                    x-on:input="calculateDaysOff('creditFerie', creditFerieHours, creditFerieMinutes)"
+                    id="creditFerieMinutes"
+                    name="datetime[time]"
+                    type="number"
+                    placeholder="00"
+                    min="0"
+                    max="59"
+                    onchange="if(parseInt(this.value,10)<10 && this.value.length < 2)this.value='0'+this.value;"
+                    >
+                    <span class="pointer-events-none absolute start-2.5 top-0 -translate-y-1/2 bg-white p-0.5 text-xs text-gray-700 transition-all peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-sm peer-focus:top-0 peer-focus:text-xs">
+                        Minutes
+                    </span>
+                </label>
+
+                <div class="flex gap-3 ml-auto">
+                    <p>
+                        <i class="fas fa-calendar-alt"></i> 
+                        <span x-text="result['creditFerie'].days"></span>
+                    </p>
+                    <p>
+                        <i class="fas fa-clock"></i> 
+                        <span x-text="result['creditFerie'].hours"></span>
+                    </p>
+                    <p>
+                        <i class="fas fa-stopwatch"></i> 
+                        <span x-text="result['creditFerie'].minutes"></span>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-6 w-full p-4 bg-white border border-gray-200 rounded-lg shadow sm:p-6 md:p-8">
+            <!-- CREDIT ANNUEL -->
+            <h3 class="mb-3 font-semibold">Congés annuels</h3> 
+            <div class="flex mb-6">
+                <label
+                for="credit-annuel"
+                class="leading-9 relative block rounded-md border border-gray-200 shadow-sm focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600">
+                    <input
+                        x-model="creditAnnuel"
+                        x-on:input="calculateTotal()"
+                        type="number"
+                        name="num"
+                        min="0"
+                        step="1"
+                        onkeypress="return event.charCode >= 48 && event.charCode <= 57"
+                        id="credit-annuel"
+                        class="pl-3 w-full peer border-none bg-transparent placeholder-transparent focus:border-transparent focus:outline-none focus:ring-0"
+                        placeholder="Crédits annuels"
+                    />
+    
+                    <span class="pointer-events-none absolute start-2.5 top-0 -translate-y-1/2 bg-white p-0.5 text-xs text-gray-700 transition-all peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-sm peer-focus:top-0 peer-focus:text-xs">
+                        Jours
+                    </span>
+                </label>
+            </div>
+    
+            <!-- CAHP-->
+            <h3 class="mb-3 font-semibold">CAHP</h3>   
+            <fieldset class="flex flex-wrap gap-3 mt-3">
+                <legend class="sr-only">CAHP</legend>
+    
+                <div>
+                    <input
+                        x-model="cahp"
+                        type="radio"
+                        name="option"
+                        value="0"
+                        id="zero"
+                        class="peer hidden"
+                        checked
+                    />
+                
+                    <label
+                    for="zero"
+                    class="flex cursor-pointer items-center justify-center rounded-md border border-gray-100 bg-white px-3 py-2 text-gray-900 hover:border-gray-200 peer-checked:border-slate-500 peer-checked:bg-slate-500 peer-checked:text-white">
+                        <p class="text-sm font-medium">
+                            0
+                        </p>
+                    </label>
+                </div>
+                
+                <div>
+                    <input
+                        x-model="cahp"
+                        type="radio"
+                        name="option"
+                        value="1"
+                        id="one"
+                        class="peer hidden"
+                    />
+                
+                    <label
+                    for="one"
+                    class="flex cursor-pointer items-center justify-center rounded-md border border-gray-100 bg-white px-3 py-2 text-gray-900 hover:border-gray-200 peer-checked:border-slate-500 peer-checked:bg-slate-500 peer-checked:text-white"                    >
+                        <p class="text-sm font-medium">
+                            1
+                        </p>
+                    </label>
+                </div>
+                
+                <div>
+                    <input
+                        x-model="cahp"
+                        type="radio"
+                        name="option"
+                        value="2"
+                        id="two"
+                        class="peer hidden"
+                    />
+                
+                    <label
+                    for="two"
+                    class="flex cursor-pointer items-center justify-center rounded-md border border-gray-100 bg-white px-3 py-2 text-gray-900 hover:border-gray-200 peer-checked:border-slate-500 peer-checked:bg-slate-500 peer-checked:text-white"                    >
+                        <p class="text-sm font-medium">
+                            2
+                        </p>
+                    </label>
+                </div>
+                
+            </fieldset>
+        </div>
+    
+        <!-- TOTAL -->
+        <h2 class="mt-6 font-bold text-xl">Total congés disponibles:</h2>
+        <hr class="mb-3">
+
+        <div>
+            <i class="fas fa-calendar-alt"></i> 
+            <strong>Jours: </strong>
+            <span x-text="totalResult.days"></span><br>
+            <i class="fas fa-clock"></i> 
+            <strong>Heures: </strong>
+            <span x-text="totalResult.hours"></span><br>
+            <i class="fas fa-stopwatch"></i> 
+            <strong>Minutes: </strong>
+            <span x-text="totalResult.minutes"></span>
+        </div>
+    </div>
+</body>
+</html>
